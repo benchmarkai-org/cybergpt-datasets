@@ -32,16 +32,14 @@ class SequenceDataset(BaseNodeDataset):
         self, sequence: List[str]
     ) -> tuple[Set, dict, float, float]:
         """Calculate transition-based metrics for a single sequence."""
-        sequence_transitions = set()
         transition_counts = defaultdict(int)
 
         for vertex, next_vertex in zip(sequence, sequence[1:]):
-            sequence_transitions.update([vertex, next_vertex])
             transition_counts[f"{vertex}->{next_vertex}"] += 1
 
         repetition_rate = 0.0
         if len(sequence) > 1:
-            repetition_rate = 1 - (len(sequence_transitions) / (2 * len(sequence)))
+            repetition_rate = 1 - ((len(set(sequence)) - 1) / (len(sequence) - 1))
 
         transition_entropy = 0.0
         if transition_counts:
@@ -51,7 +49,6 @@ class SequenceDataset(BaseNodeDataset):
             transition_entropy = entropy(transition_probs)
 
         return (
-            sequence_transitions,
             transition_counts,
             repetition_rate,
             transition_entropy,
@@ -69,13 +66,13 @@ class SequenceDataset(BaseNodeDataset):
         }
 
         for sequence in tqdm(self.sequences, desc="Calculating metrics"):
-            transitions, _, repetition_rate, trans_entropy = (
+            _, repetition_rate, trans_entropy = (
                 self._calculate_transition_metrics(sequence)
             )
 
             metrics["sequence_lengths"].append(len(sequence))
-            metrics["unique_chars_per_sequence"].append(len(transitions))
-            metrics["char_coverage"].append(len(transitions) / self.get_vocab_size())
+            metrics["unique_chars_per_sequence"].append(len(set(sequence)))
+            metrics["char_coverage"].append(len(set(sequence)) / self.get_vocab_size())
             metrics["char_repetition_rates"].append(repetition_rate)
             metrics["transition_entropy"].append(trans_entropy)
 
@@ -124,23 +121,12 @@ class SequenceDataset(BaseNodeDataset):
         """Calculate transition statistics and starting character frequencies."""
         unique_transitions = set()
         starting_characters = []
-        temporal_patterns = []
-
+        
         for sequence in self.sequences:
             if sequence:
                 starting_characters.append(sequence[0])
                 for vertex, next_vertex in zip(sequence, sequence[1:]):
                     unique_transitions.add((vertex, next_vertex))
-
-                transitions = [
-                    f"{vertex}->{next_vertex}"
-                    for vertex, next_vertex in zip(sequence, sequence[1:])
-                ]
-                if len(transitions) > 1:
-                    pattern_score = len(set(transitions)) / len(transitions)
-                    temporal_patterns.append(pattern_score)
-                else:
-                    temporal_patterns.append(0.0)
 
         start_char_counts = Counter(starting_characters)
         top_starting_chars = dict(start_char_counts.most_common(5))
@@ -148,7 +134,6 @@ class SequenceDataset(BaseNodeDataset):
         return {
             "unique_transitions": len(unique_transitions),
             "top_starting_chars": top_starting_chars,
-            "temporal_patterns": temporal_patterns,
         }
 
     def calculate_metrics(self) -> dict:
@@ -172,44 +157,35 @@ class SequenceDataset(BaseNodeDataset):
             f"Average character repetition rate: {np.mean(metrics['char_repetition_rates'])}"
         )
         print(f"Average transition entropy: {np.mean(metrics['transition_entropy'])}")
-        print(f"Average similarity: {np.mean(metrics['average_similarity'])}")
+        print(
+            f"Average TF-IDF cosine similarity: {np.mean(metrics['average_similarity'])}"
+        )
         print(f"Max similarity: {np.max(metrics['similarity_distribution'])}")
         print("")
         print(f"Unique transitions: {metrics['unique_transitions']}")
         print(f"Top 5 starting characters: {metrics['top_starting_chars']}")
-        print(
-            f"Average temporal pattern score: {np.mean(metrics['temporal_patterns'])}"
-        )
         print("")
 
 
 def plot_metrics(metrics):
     """Plot sequence metrics."""
-    fig, axes = plt.subplots(3, 2, figsize=(10, 12))
+    fig, axes = plt.subplots(2, 2, figsize=(10, 12))
 
     sns.histplot(metrics["sequence_lengths"], bins=50, ax=axes[0, 0])
     axes[0, 0].set_title("Distribution of Sequence Lengths")
     axes[0, 0].set_xlabel("Number of Edges")
 
     sns.histplot(metrics["unique_chars_per_sequence"], bins=50, ax=axes[0, 1])
-    axes[0, 1].set_title("Distribution of Unique Characters per Session")
+    axes[0, 1].set_title("Distribution of Unique Characters per Sequence")
     axes[0, 1].set_xlabel("Number of Unique Characters")
 
     sns.histplot(metrics["char_repetition_rates"], bins=50, ax=axes[1, 0])
     axes[1, 0].set_title("Distribution of Character Repetition Rates")
     axes[1, 0].set_xlabel("Repetition Rate (higher = more repetitive)")
 
-    sns.histplot(metrics["char_coverage"], bins=50, ax=axes[1, 1])
-    axes[1, 1].set_title("Distribution of Character Coverage")
-    axes[1, 1].set_xlabel("Coverage (%)")
-
-    sns.histplot(metrics["transition_entropy"], bins=50, ax=axes[2, 0])
-    axes[2, 0].set_title("Transition Entropy Distribution")
-    axes[2, 0].set_xlabel("Entropy")
-
-    sns.histplot(metrics["temporal_patterns"], bins=50, ax=axes[2, 1])
-    axes[2, 1].set_title("Temporal Pattern Distribution")
-    axes[2, 1].set_xlabel("Pattern Score (lower = more repetitive)")
+    sns.histplot(metrics["transition_entropy"], bins=50, ax=axes[1, 1])
+    axes[1, 1].set_title("Transition Entropy Distribution")
+    axes[1, 1].set_xlabel("Entropy")
 
     plt.tight_layout()
     return plt.gcf()

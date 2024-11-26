@@ -100,34 +100,6 @@ class WebsiteDataset(BaseDataset):
         return domain_counts, large_volume_domains, category_distribution
 
     @staticmethod
-    def detect_potential_threats(df: DataFrame) -> List[str]:
-        """Detect potential security threats based on browsing patterns."""
-        threats = []
-
-        # Check for direct IP access
-        ip_access = df[df["domain"].str.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")]
-        if not ip_access.empty:
-            threats.append(f"Direct IP access detected: {len(ip_access)} instances")
-
-        # Check for unusual domain access patterns
-        domain_freq = df["domain"].value_counts()
-        threshold = domain_freq.mean() + 3 * domain_freq.std()
-        suspicious_domains = domain_freq[domain_freq > threshold]
-        if not suspicious_domains.empty:
-            threats.append(
-                f"Unusual domain access patterns: {len(suspicious_domains)} domains"
-            )
-
-        # Check for temporal anomalies
-        hourly_counts = df.groupby("hour")["domain"].count()
-        threshold = hourly_counts.mean() + 2 * hourly_counts.std()
-        suspicious_hours = hourly_counts[hourly_counts > threshold]
-        if not suspicious_hours.empty:
-            threats.append(f"Unusual activity hours: {len(suspicious_hours)} hours")
-
-        return threats
-
-    @staticmethod
     def analyse_temporal_stability(df: DataFrame) -> tuple[DataFrame, DataFrame]:
         """analyse the stability of temporal patterns for each day of the week."""
         hourly_by_date = (
