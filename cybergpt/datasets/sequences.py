@@ -8,7 +8,7 @@ from scipy.stats import entropy
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from datasets.base import BaseNodeDataset
+from cybergpt.datasets.base import BaseNodeDataset
 
 
 class SequenceDataset(BaseNodeDataset):
@@ -66,8 +66,8 @@ class SequenceDataset(BaseNodeDataset):
         }
 
         for sequence in tqdm(self.sequences, desc="Calculating metrics"):
-            _, repetition_rate, trans_entropy = (
-                self._calculate_transition_metrics(sequence)
+            _, repetition_rate, trans_entropy = self._calculate_transition_metrics(
+                sequence
             )
 
             metrics["sequence_lengths"].append(len(sequence))
@@ -121,7 +121,7 @@ class SequenceDataset(BaseNodeDataset):
         """Calculate transition statistics and starting character frequencies."""
         unique_transitions = set()
         starting_characters = []
-        
+
         for sequence in self.sequences:
             if sequence:
                 starting_characters.append(sequence[0])

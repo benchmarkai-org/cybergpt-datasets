@@ -6,33 +6,121 @@ from pandas import Series, DataFrame
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import entropy
 import numpy as np
+from tqdm.auto import tqdm
 
-from datasets.sequences import SequenceDataset
-from datasets.base import BaseDataset
-from datasets.utils import jensen_shannon_distance
+from cybergpt.datasets.sequences import SequenceDataset
+from cybergpt.datasets.base import BaseDataset
+from cybergpt.datasets.utils import jensen_shannon_distance
 
 
 class WebsiteDataset(BaseDataset):
+    """Dataset for browsing data. Primarily for investigating German Web Tracking dataset."""
+
     def __init__(self, user_data: Dict[str, DataFrame]):
         super().__init__()
         self.user_data = user_data
         # Cache user stats
         self.user_stats: DataFrame | None = None
 
-    def to_sequence_dataset(self) -> SequenceDataset:
-        """Convert user data to a sequence dataset, splitting sequences by user and date."""
+    @staticmethod
+    def split_by_pause(df: DataFrame, pause_threshold: int = 3600) -> list[DataFrame]:
+        """Split a dataframe on pauses threshold"""
+        dfs = []
+        df = df.reset_index(drop=True)
+        df["diff_ts"] = (
+            df["timestamp"].shift(-1).diff().apply(lambda x: x.total_seconds())
+        )
+        df["jump"] = np.abs(df["diff_ts"] - df["active_seconds"]) > pause_threshold
+        split_indices = df.index[df["jump"]].tolist()
+        all_indices = [-1] + split_indices + [len(df)]
+        df = df.drop(columns=["diff_ts", "jump"])
+        for start, end in zip(all_indices[:-1], all_indices[1:]):
+            dfs.append(df.loc[start + 1 : end, :])
+        return dfs
+
+    @staticmethod
+    def combine_sequential(df: DataFrame, break_threshold: int = 60) -> DataFrame:
+        """Combine sequential requests from the same domain into a single request.
+        The parameter break_threshold is the additional seconds beyond active_seconds
+        to consider as same session."""
+        df = df.sort_values("timestamp").copy()
+        time_diffs = df["timestamp"].diff().shift(-1).dt.total_seconds()
+
+        should_combine = (df["domain"].shift(-1) == df["domain"]) & (
+            time_diffs <= (df["active_seconds"] + break_threshold)
+        )
+        groups = (~should_combine.fillna(False)).cumsum()
+
+        agg_dict = {
+            "timestamp": "first",
+            "domain": "first",
+            "active_seconds": "sum",
+            "date": "first",
+            "hour": "first",
+            "day_of_week": "first",
+        }
+
+        return df.groupby(groups).agg(agg_dict).reset_index(drop=True)
+
+    @staticmethod
+    def split_history_into_chunks(
+        df: pd.DataFrame,
+        split: str = "date",
+        pause_threshold: int = 3600,
+        combine_sequential: bool = False,
+    ) -> List[pd.DataFrame]:
+        """Split user browsing history into chunks."""
+
+        # Split by date or between pauses
+        if split == "date":
+            dfs = [day_df for _, day_df in df.groupby("date")]
+        elif split == "pause":
+            dfs = WebsiteDataset.split_by_pause(df, pause_threshold)
+
+        # Remove empty dataframes
+        dfs = [df for df in dfs if not df.empty]
+
+        # Combine sequential requests, if required
+        if combine_sequential:
+            dfs = [WebsiteDataset.combine_sequential(df) for df in dfs]
+
+        return dfs
+
+    def extract_sequences(
+        self,
+        split: str = "date",
+        pause_threshold: int = 3600,
+        combine_sequential: bool = False,
+    ) -> List[dict]:
+        """Extract sequences from user data."""
         sequences = []
-        for df in self.user_data.values():
-            # Group by date and create a sequence for each day
-            for date, day_df in df.groupby("date"):
-                sequences.append(day_df["domain"].tolist())
+        for user_id, df in tqdm(self.user_data.items(), desc="Processing user data"):
+            dfs = WebsiteDataset.split_history_into_chunks(
+                df, split, pause_threshold, combine_sequential
+            )
+            sequences.extend(
+                {"user_id": user_id, "start_time": df["timestamp"].min(), "df": df}
+                for df in dfs
+            )
+        return sequences
+
+    def to_sequence_dataset(
+        self,
+        split: str = "date",
+        pause_threshold: int = 3600,
+        combine_sequential: bool = False,
+    ) -> SequenceDataset:
+        """Convert user data to a sequence dataset, splitting sequences by user and date or on pauses."""
+        dict_sequences = self.extract_sequences(
+            split, pause_threshold, combine_sequential
+        )
+        sequences = [s["df"]["domain"].tolist() for s in dict_sequences]
         return SequenceDataset(sequences)
 
     @staticmethod
     def categorise_domain(domain: str) -> str:
-        """categorise a domain into predefined categories."""
+        """Categorise a domain into predefined categories."""
         categories = {
             "social_media": ["facebook", "twitter", "instagram", "linkedin"],
             "video": ["youtube", "vimeo", "dailymotion", "googlevideo"],
@@ -376,7 +464,6 @@ def plot_temporal_stability(similarity_df, distributions):
         "Sunday",
     ]
 
-    # Reduced figure size from (12, 12) to (8, 8)
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 8))
 
     # Box plot of Jensen-Shannon distances by day of week

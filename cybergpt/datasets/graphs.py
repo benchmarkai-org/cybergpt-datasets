@@ -3,8 +3,8 @@ import numpy as np
 from tqdm import tqdm
 from collections import defaultdict
 
-from datasets.base import BaseNodeDataset
-from datasets.sequences import SequenceDataset
+from cybergpt.datasets.base import BaseNodeDataset
+from cybergpt.datasets.sequences import SequenceDataset
 
 
 class GraphDataset(BaseNodeDataset):
