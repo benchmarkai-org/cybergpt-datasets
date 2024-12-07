@@ -133,9 +133,9 @@ class SessionFeatureExtractor:
             "session_duration_minutes": (times.max() - times.min()).total_seconds()
             / 60,
             "num_visits": len(timestamps),
-            "avg_time_between_visits": np.mean(time_diffs)
-            if len(timestamps) > 1
-            else 0,
+            "avg_time_between_visits": (
+                np.mean(time_diffs) if len(timestamps) > 1 else 0
+            ),
             "std_time_between_visits": np.std(time_diffs) if len(timestamps) > 1 else 0,
             "is_weekend": times.min().weekday() >= 5,
             "is_working_hours": (times.min().hour >= 9) & (times.max().hour <= 17),
@@ -143,11 +143,11 @@ class SessionFeatureExtractor:
             "session_time_category": (
                 "morning"
                 if 5 <= time_of_day < 12
-                else "afternoon"
-                if 12 <= time_of_day < 17
-                else "evening"
-                if 17 <= time_of_day < 22
-                else "night"
+                else (
+                    "afternoon"
+                    if 12 <= time_of_day < 17
+                    else "evening" if 17 <= time_of_day < 22 else "night"
+                )
             ),
             "day_of_week": times.min().dayofweek,
             "is_weekend": times.min().dayofweek >= 5,
