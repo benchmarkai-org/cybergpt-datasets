@@ -24,7 +24,7 @@ class WebsiteTrackingEmbedder:
     def convert_sequence_to_string(sequence_dict: dict, max_tokens: int = 8192) -> str:
         start_time, df = sequence_dict["start_time"], sequence_dict["df"]
 
-        prefix = f"{start_time.strftime('%A')} {start_time.hour}:{start_time.minute}, Visits: "
+        prefix = f"{start_time.strftime('%A')} {start_time.strftime('%H:%M')}, Visits: "
 
         site_visits = [
             f"{row['domain']} ({row['active_seconds']}s)" for _, row in df.iterrows()

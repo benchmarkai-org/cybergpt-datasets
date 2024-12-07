@@ -1,8 +1,7 @@
 import numpy as np
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.decomposition import PCA
@@ -10,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-class DimensionalityReducer:
+class PCAReducer:
     def __init__(self):
         self.scaler = StandardScaler()
         self.pca = None
@@ -20,7 +19,7 @@ class DimensionalityReducer:
         X_scaled = self.scaler.fit_transform(X_train)
         self.pca = PCA(n_components=n_components)
         self.pca.fit(X_scaled)
-        
+
     def reduce_dimensions(self, X):
         """Reduce dimensions of given dataset."""
         if self.pca is None:
@@ -52,22 +51,6 @@ class DimensionalityReducer:
         plt.show()
 
         return cumulative_variance_ratio
-
-    def plot_feature_importance(self, top_n=20):
-        if self.pca is None:
-            raise ValueError("Run reduce_dimensions first!")
-
-        loadings = np.abs(self.pca.components_)
-        feature_importance = loadings.mean(axis=0)
-        top_indices = np.argsort(feature_importance)[-top_n:]
-
-        plt.figure(figsize=(12, 6))
-        plt.bar(range(top_n), feature_importance[top_indices])
-        plt.xlabel("Feature Index")
-        plt.ylabel("Average Importance")
-        plt.title(f"Top {top_n} Most Important Original Features")
-        plt.tight_layout()
-        plt.show()
 
 
 class ClassificationEvaluation:
@@ -111,13 +94,15 @@ class ClassificationEvaluation:
         self.X_train = self.scaler.fit_transform(self.X_train)
         self.X_test = self.scaler.transform(self.X_test)
 
-    def evaluate_models(self):
+    def evaluate_models(self, model_names=None):
         """Evaluate multiple models and return their results."""
         models = {
             "logistic": LogisticRegression(max_iter=1000, multi_class="multinomial"),
             # 'knn': KNeighborsClassifier(n_neighbors=5),
             "rf": RandomForestClassifier(n_estimators=100),
         }
+        if model_names is not None:
+            models = {name: models[name] for name in model_names}
 
         results = {}
 

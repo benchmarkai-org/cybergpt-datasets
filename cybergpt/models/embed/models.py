@@ -16,7 +16,7 @@ SENTENCE_TRANSFORMERS = {
     "mpnet": SentenceTransformer("sentence-transformers/all-mpnet-base-v2"),
     "e5": SentenceTransformer("intfloat/e5-small-v2"),
 }
-OPENAI_MODEL = "text-embedding-3-small"
+DEFAULT_OPENAI_MODEL = "text-embedding-3-small"
 
 
 class EmbeddingModel(ABC):
@@ -30,7 +30,9 @@ class EmbeddingModel(ABC):
 
 class OpenAIEmbedder(EmbeddingModel):
     def __init__(
-        self, model: str = OPENAI_MODEL, api_key: str = os.getenv("OPENAI_API_KEY")
+        self,
+        model: str = DEFAULT_OPENAI_MODEL,
+        api_key: str = os.getenv("OPENAI_API_KEY"),
     ):
         self.model = model
         self.api_key = api_key

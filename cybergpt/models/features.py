@@ -12,17 +12,68 @@ from cybergpt.datasets.loaders import WebTrackingLoader
 
 
 class SessionFeatureExtractor:
-    social_domains = ["facebook", "twitter", "instagram", "linkedin", "reddit", "pinterest", "tiktok"]
+    social_domains = [
+        "facebook",
+        "twitter",
+        "instagram",
+        "linkedin",
+        "reddit",
+        "pinterest",
+        "tiktok",
+    ]
     search_domains = ["google", "bing", "yahoo", "duckduckgo"]
     email_domains = ["gmail", "outlook", "yahoo"]
-    commerce_domains = list(set([
-        "argos", "tesco", "ocado", "sainsburys", "asda", "waitrose", 
-        "morrisons", "boots", "superdrug",  # UK commerce
-        "amazon", "ebay", "shopify", "etsy", "walmart", "target", "bestbuy", 
-        "costco", "ulta", "sephora", "macys", "nordstrom",  # US commerce
-        "otto", "zalando", "dm", "rewe", "kaufland", "lidl", "edeka", "netto"  # German commerce
-    ]))
-    news_domains = ["cnn", "bbc", "reuters", "news", "nytimes", "washingtonpost", "theguardian", "theverge", "techcrunch", "wired", "bloomberg", "forbes", "wsj", "nyt"]
+    commerce_domains = list(
+        set(
+            [
+                "argos",
+                "tesco",
+                "ocado",
+                "sainsburys",
+                "asda",
+                "waitrose",
+                "morrisons",
+                "boots",
+                "superdrug",  # UK commerce
+                "amazon",
+                "ebay",
+                "shopify",
+                "etsy",
+                "walmart",
+                "target",
+                "bestbuy",
+                "costco",
+                "ulta",
+                "sephora",
+                "macys",
+                "nordstrom",  # US commerce
+                "otto",
+                "zalando",
+                "dm",
+                "rewe",
+                "kaufland",
+                "lidl",
+                "edeka",
+                "netto",  # German commerce
+            ]
+        )
+    )
+    news_domains = [
+        "cnn",
+        "bbc",
+        "reuters",
+        "news",
+        "nytimes",
+        "washingtonpost",
+        "theguardian",
+        "theverge",
+        "techcrunch",
+        "wired",
+        "bloomberg",
+        "forbes",
+        "wsj",
+        "nyt",
+    ]
 
     def __init__(self):
         """Initialize feature extractor."""
@@ -79,17 +130,23 @@ class SessionFeatureExtractor:
         return {
             "session_start_hour": times.min().hour,
             "session_end_hour": times.max().hour,
-            "session_duration_minutes": (times.max() - times.min()).total_seconds() / 60,
+            "session_duration_minutes": (times.max() - times.min()).total_seconds()
+            / 60,
             "num_visits": len(timestamps),
-            "avg_time_between_visits": np.mean(time_diffs) if len(timestamps) > 1 else 0,
+            "avg_time_between_visits": np.mean(time_diffs)
+            if len(timestamps) > 1
+            else 0,
             "std_time_between_visits": np.std(time_diffs) if len(timestamps) > 1 else 0,
             "is_weekend": times.min().weekday() >= 5,
             "is_working_hours": (times.min().hour >= 9) & (times.max().hour <= 17),
             "spans_multiple_days": (times.max().date() - times.min().date()).days > 0,
             "session_time_category": (
-                "morning" if 5 <= time_of_day < 12
-                else "afternoon" if 12 <= time_of_day < 17
-                else "evening" if 17 <= time_of_day < 22
+                "morning"
+                if 5 <= time_of_day < 12
+                else "afternoon"
+                if 12 <= time_of_day < 17
+                else "evening"
+                if 17 <= time_of_day < 22
                 else "night"
             ),
             "day_of_week": times.min().dayofweek,
@@ -118,7 +175,7 @@ class SessionFeatureExtractor:
         tld_counts = Counter(tlds)
 
         subdomain_depths = [len(d.split(".")) for d in domains]
-        
+
         return {
             "unique_domains": len(domain_counts),
             "unique_tlds": len(tld_counts),
@@ -129,20 +186,29 @@ class SessionFeatureExtractor:
                 tld_counts.most_common(1)[0][1] if tld_counts else 0
             ),
             "domain_entropy": self._calculate_entropy(list(domain_counts.values())),
-            "has_social_media": any(domain in str(domains) for domain in self.social_domains),
-            "frac_social_media": sum(domain in self.social_domains for domain in domains) / len(domains),
+            "has_social_media": any(
+                domain in str(domains) for domain in self.social_domains
+            ),
+            "frac_social_media": sum(
+                domain in self.social_domains for domain in domains
+            )
+            / len(domains),
             "has_search": any(domain in str(domains) for domain in self.search_domains),
-            "frac_search": sum(domain in self.search_domains for domain in domains) / len(domains),
+            "frac_search": sum(domain in self.search_domains for domain in domains)
+            / len(domains),
             "has_email": any(domain in str(domains) for domain in self.email_domains),
-            "frac_email": sum(domain in self.email_domains for domain in domains) / len(domains),
+            "frac_email": sum(domain in self.email_domains for domain in domains)
+            / len(domains),
             "has_commerce": any(
                 domain in str(domains).lower() for domain in self.commerce_domains
             ),
-            "frac_commerce": sum(
-                domain in self.commerce_domains for domain in domains
-            ) / len(domains),
-            "has_news": any(domain in str(domains).lower() for domain in self.news_domains),
-            "frac_news": sum(domain in self.news_domains for domain in domains) / len(domains),
+            "frac_commerce": sum(domain in self.commerce_domains for domain in domains)
+            / len(domains),
+            "has_news": any(
+                domain in str(domains).lower() for domain in self.news_domains
+            ),
+            "frac_news": sum(domain in self.news_domains for domain in domains)
+            / len(domains),
             "domain_return_rate": 1
             - (len(domain_counts) / len(domains)),  # proportion of repeat visits
             "max_subdomain_depth": max(subdomain_depths),
@@ -171,10 +237,14 @@ class SessionFeatureExtractor:
         domains = visit_data[:, 1]
         dwell_times = visit_data[:, 2]
 
-        timestamps = pd.to_datetime(timestamps).astype(np.int64) / 1e9  # Convert to seconds
+        timestamps = (
+            pd.to_datetime(timestamps).astype(np.int64) / 1e9
+        )  # Convert to seconds
         time_diffs = np.diff(timestamps)
-        
-        domain_switches = np.array([domains[i] != domains[i-1] for i in range(1, len(domains))])
+
+        domain_switches = np.array(
+            [domains[i] != domains[i - 1] for i in range(1, len(domains))]
+        )
 
         return {
             "avg_transition_time": np.mean(time_diffs),
@@ -184,13 +254,24 @@ class SessionFeatureExtractor:
                 domains[i] == domains[i - 2] and domains[i - 1] != domains[i]
                 for i in range(2, len(domains))
             ),
-            "rapid_sequence_changes": np.sum(np.diff(dwell_times) < 1),  # Changes under 1 second
+            "rapid_sequence_changes": np.sum(
+                np.diff(dwell_times) < 1
+            ),  # Changes under 1 second
             "avg_dwell_time": np.mean(dwell_times),
-            "frac_time_social_media": sum(dwell_times[np.isin(domains, self.social_domains)]) / sum(dwell_times),
-            "frac_time_search": sum(dwell_times[np.isin(domains, self.search_domains)]) / sum(dwell_times),
-            "frac_time_email": sum(dwell_times[np.isin(domains, self.email_domains)]) / sum(dwell_times),
-            "frac_time_commerce": sum(dwell_times[np.isin(domains, self.commerce_domains)]) / sum(dwell_times),
-            "frac_time_news": sum(dwell_times[np.isin(domains, self.news_domains)]) / sum(dwell_times),
+            "frac_time_social_media": sum(
+                dwell_times[np.isin(domains, self.social_domains)]
+            )
+            / sum(dwell_times),
+            "frac_time_search": sum(dwell_times[np.isin(domains, self.search_domains)])
+            / sum(dwell_times),
+            "frac_time_email": sum(dwell_times[np.isin(domains, self.email_domains)])
+            / sum(dwell_times),
+            "frac_time_commerce": sum(
+                dwell_times[np.isin(domains, self.commerce_domains)]
+            )
+            / sum(dwell_times),
+            "frac_time_news": sum(dwell_times[np.isin(domains, self.news_domains)])
+            / sum(dwell_times),
         }
 
     @staticmethod
@@ -227,7 +308,9 @@ if __name__ == "__main__":
     user_data = WebTrackingLoader(args.data_csv).user_data
     dataset = WebsiteDataset(user_data)
 
-    sequences = dataset.extract_sequences(split="pause", pause_threshold=3600, combine_sequential=True)
+    sequences = dataset.extract_sequences(
+        split="pause", pause_threshold=3600, combine_sequential=True
+    )
     dfs = [s["df"] for s in sequences]
     labels = [s["user_id"] for s in sequences]
 
