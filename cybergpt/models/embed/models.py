@@ -1,6 +1,6 @@
 from sentence_transformers import SentenceTransformer
 import numpy as np
-from typing import List, Dict
+from typing import List
 from tqdm import tqdm
 import os
 import openai

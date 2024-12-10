@@ -40,7 +40,7 @@ class WebsiteTrackingEmbedder:
         start_visits = site_visits[: len(site_visits) // 2]
         end_visits = site_visits[len(site_visits) // 2 + 1 :]
         while len(encoding.encode(full_string)) > max_tokens:
-            if len(start_visits) > len(end_visits):
+            if len(start_visits) < len(end_visits):
                 end_visits.pop(0)
             else:
                 start_visits.pop()
